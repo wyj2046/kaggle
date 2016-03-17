@@ -27,3 +27,7 @@
 - Bag of Words Meets Bags of Popcorn
 
   https://www.kaggle.com/c/word2vec-nlp-tutorial
+
+- Click-Through Rate Prediction
+
+  https://www.kaggle.com/c/avazu-ctr-prediction
