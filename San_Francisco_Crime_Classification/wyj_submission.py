@@ -4,6 +4,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.grid_search import GridSearchCV
 from sklearn.ensemble import GradientBoostingClassifier
+import xgboost as xgb
 
 
 dow = {
@@ -86,6 +87,17 @@ def harmonize_data2(df):
     return data
 
 
+def label_to_num(df):
+    labels = df.unique()
+    label_map = {}
+    i = 0
+    for label in labels:
+        label_map[label] = i
+        i += 1
+    df = df.map(label_map)
+    return df
+
+
 if __name__ == '__main__':
     train = pd.read_csv('train.csv')
     test = pd.read_csv('test.csv')
@@ -97,7 +109,7 @@ if __name__ == '__main__':
     X_test = harmonize_data2(test)
 
     # clf = RandomForestClassifier(n_jobs=1, n_estimators=100, min_samples_split=1000)
-    clf = GradientBoostingClassifier(n_estimators=100, min_samples_split=1000)
+    # clf = GradientBoostingClassifier(n_estimators=100, min_samples_split=1000, verbose=1)
     # clf = SVC(probability=True, kernel='linear')
     # tunes_parameters = [
     #     {'kernel': ['rbf', 'linear']},
@@ -106,15 +118,36 @@ if __name__ == '__main__':
 
     # clf = SVC(probability=True)
     # clf = GridSearchCV(clf, tunes_parameters)
-    clf.fit(X_train, y_train)
+    # clf.fit(X_train, y_train)
     # print clf.best_params_
     # for params, mean_score, scores in clf.grid_scores_:
     #     print '%0.3f (+/-%0.03f) for %r' % (mean_score, scores.std() * 2, params)
 
-    results = clf.predict_proba(X_test)
+    # results = clf.predict_proba(X_test)
 
-    submission = pd.DataFrame(data=results, columns=clf.classes_)
+    label_num = label_to_num(y_train)
+    xg_train = xgb.DMatrix(X_train.values, label=label_num.values)
+    xg_test = xgb.DMatrix(X_test.values)
+
+    param = {}
+    param['objective'] = 'multi:softprob'
+    param['eval_metric'] = 'mlogloss'
+    param['num_class'] = len(y_train.unique())
+    param['eta'] = 0.1
+    param['max_depth'] = 6
+    param['nthread'] = 2
+    param['silent'] = 1
+    param['seed'] = '229'
+
+    watchlist = [(xg_train, 'train')]
+    num_round = 1000
+    bst = xgb.train(param, xg_train, num_round, watchlist)
+    results = bst.predict(xg_test)
+
+    # submission = pd.DataFrame(data=results, columns=clf.classes_)
+    submission = pd.DataFrame(data=results, columns=y_train.unique())
     submission = submission.join(test_id)
 
-    columns = ['Id'] + clf.classes_.tolist()
+    # columns = ['Id'] + clf.classes_.tolist()
+    columns = ['Id'] + y_train.unique().tolist()
     submission.to_csv('result.csv', index=False, columns=columns)
