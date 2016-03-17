@@ -11,7 +11,11 @@
   https://www.kaggle.com/c/forest-cover-type-prediction
 - Homesite Quote Conversion
   https://www.kaggle.com/c/homesite-quote-conversion
+
+  https://www.kaggle.com/phunter/homesite-quote-conversion/xgboost-with-gridsearchcv
 - Crowdflower Search Results Relevance
   https://www.kaggle.com/c/crowdflower-search-relevance
+
+  https://github.com/ChenglongChen/Kaggle_CrowdFlower
 - Bag of Words Meets Bags of Popcorn
   https://www.kaggle.com/c/word2vec-nlp-tutorial
