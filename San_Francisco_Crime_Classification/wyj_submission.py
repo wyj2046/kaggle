@@ -125,29 +125,31 @@ if __name__ == '__main__':
 
     # results = clf.predict_proba(X_test)
 
-    label_num = label_to_num(y_train)
-    xg_train = xgb.DMatrix(X_train.values, label=label_num.values)
-    xg_test = xgb.DMatrix(X_test.values)
+    # label_num = label_to_num(y_train)
+    # xg_train = xgb.DMatrix(X_train.values, label=label_num.values)
+    # xg_test = xgb.DMatrix(X_test.values)
 
-    param = {}
-    param['objective'] = 'multi:softprob'
-    param['eval_metric'] = 'mlogloss'
-    param['num_class'] = len(y_train.unique())
-    param['eta'] = 0.1
-    param['max_depth'] = 6
-    param['nthread'] = 2
-    param['silent'] = 1
-    param['seed'] = '229'
+    # param = {}
+    # param['objective'] = 'multi:softprob'
+    # param['eval_metric'] = 'mlogloss'
+    # param['num_class'] = len(y_train.unique())
+    # param['eta'] = 0.1
+    # param['max_depth'] = 6
+    # param['nthread'] = 2
+    # param['silent'] = 1
+    # param['seed'] = '229'
 
-    watchlist = [(xg_train, 'train')]
-    num_round = 1000
-    bst = xgb.train(param, xg_train, num_round, watchlist)
-    results = bst.predict(xg_test)
+    # watchlist = [(xg_train, 'train')]
+    # num_round = 1000
+    # bst = xgb.train(param, xg_train, num_round, watchlist)
+    # results = bst.predict(xg_test)
 
-    # submission = pd.DataFrame(data=results, columns=clf.classes_)
+    xgb_model = xgb.XGBClassifier(objective='multi:softprob', learning_rate=0.1, n_estimators=2, max_depth=6, nthread=2, seed='229')
+    xgb_model.fit(X_train, y_train, eval_metric='mlogloss')
+    results = xgb_model.predict_proba(X_test)
+
     submission = pd.DataFrame(data=results, columns=y_train.unique())
     submission = submission.join(test_id)
 
-    # columns = ['Id'] + clf.classes_.tolist()
     columns = ['Id'] + y_train.unique().tolist()
     submission.to_csv('result.csv', index=False, columns=columns)
