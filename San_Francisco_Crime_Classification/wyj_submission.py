@@ -5,6 +5,8 @@ from sklearn.svm import SVC
 from sklearn.grid_search import GridSearchCV
 from sklearn.ensemble import GradientBoostingClassifier
 import xgboost as xgb
+from sklearn.grid_search import GridSearchCV
+from sklearn.cross_validation import StratifiedKFold
 
 
 dow = {
@@ -144,9 +146,25 @@ if __name__ == '__main__':
     # bst = xgb.train(param, xg_train, num_round, watchlist)
     # results = bst.predict(xg_test)
 
-    xgb_model = xgb.XGBClassifier(objective='multi:softprob', learning_rate=0.1, n_estimators=2, max_depth=6, nthread=2, seed='229')
-    xgb_model.fit(X_train, y_train, eval_metric='mlogloss')
-    results = xgb_model.predict_proba(X_test)
+    # xgb_model = xgb.XGBClassifier(objective='multi:softprob', learning_rate=0.1, n_estimators=2, max_depth=6, nthread=2, seed='229')
+    # xgb_model.fit(X_train, y_train, eval_metric='mlogloss')
+    # results = xgb_model.predict_proba(X_test)
+
+    xgb_model = xgb.XGBClassifier()
+
+    param = {}
+    param['objective'] = ['multi:softprob']
+    param['nthread'] = [2]
+    param['seed'] = ['229']
+
+    param['learning_rate'] = [0.1]
+    param['max_depth'] = [6]
+    param['n_estimators'] = [2]
+
+    clf = GridSearchCV(xgb_model, param, n_jobs=2, cv=StratifiedKFold(y_train, n_folds=3, shuffle=True), scoring='log_loss')
+    clf.fit(X_train, y_train)
+    print clf.grid_scores_
+    results = clf.predict_proba(X_test)
 
     submission = pd.DataFrame(data=results, columns=y_train.unique())
     submission = submission.join(test_id)
