@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import xgboost as xgb
+from sklearn.ensemble import RandomForestClassifier
 
 
 def get_pred_y(train_X, train_y, test_X):
@@ -25,6 +26,13 @@ def get_pred_y(train_X, train_y, test_X):
     return pred_y
 
 
+def get_pred_y2(train_X, train_y, test_X):
+    clf = RandomForestClassifier(n_estimators=100, max_depth=6, min_samples_split=100, random_state=229, verbose=1)
+    clf.fit(train_X, train_y)
+    pred_y = clf.predict_proba(test_X)
+    return pred_y[:, 1]
+
+
 if __name__ == '__main__':
     train = pd.read_csv('train.csv')
     test = pd.read_csv('test.csv')
@@ -32,7 +40,8 @@ if __name__ == '__main__':
     train_y = train['TARGET']
     test_X = test.drop(['ID'], axis=1)
 
-    pred_y = get_pred_y(train_X, train_y, test_X)
+    # pred_y = get_pred_y(train_X, train_y, test_X)
+    pred_y = get_pred_y2(train_X, train_y, test_X)
 
     submission = pd.DataFrame(data=pred_y, columns=['TARGET'])
     submission = submission.join(test['ID'])
