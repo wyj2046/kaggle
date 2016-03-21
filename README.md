@@ -31,3 +31,7 @@
 - Click-Through Rate Prediction
 
   https://www.kaggle.com/c/avazu-ctr-prediction
+  
+- Santander Customer Satisfaction
+
+  https://www.kaggle.com/c/santander-customer-satisfaction
