@@ -37,7 +37,6 @@ def tune_xgb_param(X, y):
     base_param['n_estimators'] = 63
     base_param['objective'] = 'binary:logistic'
     base_param['seed'] = 229
-    model = xgb.XGBClassifier(**base_param)
 
     tune_param = {}
     # tune_param['max_depth'] = range(3, 10, 2)
@@ -46,15 +45,21 @@ def tune_xgb_param(X, y):
     # base_param['min_child_weight'] = 5
 
     # tune_param['min_child_weight'] = [5, 7, 9, 11]
-    base_param['min_child_weight'] = 7
+    base_param['min_child_weight'] = 5
 
+    # tune_param['gamma'] = [i / 10.0 for i in range(0, 5)]
+    # tune_param['gamma'] = 0.2
+    # tune_param['gamma'] = [i / 100.0 for i in range(15, 25, 2)]
+    base_param['gamma'] = 0.21
+
+    model = xgb.XGBClassifier(**base_param)
     clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=4, cv=3, verbose=2)
     clf.fit(X, y)
     for item in clf.grid_scores_:
         print item
     print clf.best_params_, clf.best_score_
 
-    model_fit(clf.best_estimator_, X, y)
+    # model_fit(clf.best_estimator_, X, y)
 
 
 def get_pred_y1(train_X, train_y, test_X):
