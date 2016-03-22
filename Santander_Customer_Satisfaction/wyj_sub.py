@@ -34,18 +34,24 @@ def tune_xgb_param(X, y):
     base_param['nthread'] = 2
     base_param['silent'] = 1
     base_param['learning_rate'] = 0.1
-    base_param['n_estimators'] = 57
+    base_param['n_estimators'] = 63
     base_param['objective'] = 'binary:logistic'
     base_param['seed'] = 229
     model = xgb.XGBClassifier(**base_param)
 
     tune_param = {}
-    tune_param['max_depth'] = range(3, 10, 2)
-    tune_param['min_child_weight'] = range(1, 6, 2)
+    # tune_param['max_depth'] = range(3, 10, 2)
+    # tune_param['min_child_weight'] = range(1, 6, 2)
+    base_param['max_depth'] = 5
+    # base_param['min_child_weight'] = 5
 
-    clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=2, cv=3, verbose=2)
+    # tune_param['min_child_weight'] = [5, 7, 9, 11]
+    base_param['min_child_weight'] = 7
+
+    clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=4, cv=3, verbose=2)
     clf.fit(X, y)
-    print clf.grid_scores_
+    for item in clf.grid_scores_:
+        print item
     print clf.best_params_, clf.best_score_
 
     model_fit(clf.best_estimator_, X, y)
@@ -63,11 +69,14 @@ def get_pred_y1(train_X, train_y, test_X):
     param['eval_metric'] = 'auc'
     param['seed'] = 229
 
-    # cv_result = xgb.cv(param, xg_train_X, num_boost_round=1000, nfold=3, metrics='auc', early_stopping_rounds=50, verbose_eval=True, show_stdv=False)
+    param['max_depth'] = 5
+    param['min_child_weight'] = 5
+
+    cv_result = xgb.cv(param, xg_train_X, num_boost_round=1000, nfold=3, metrics='auc', early_stopping_rounds=50, verbose_eval=True, show_stdv=False)
 
     watchlist = [(xg_train_X, 'train')]
-    # num_round = cv_result.shape[0]
-    num_round = 57
+    num_round = cv_result.shape[0]
+    # num_round = 57
     print 'num_round', num_round
     bst = xgb.train(param, xg_train_X, num_round, watchlist)
 
