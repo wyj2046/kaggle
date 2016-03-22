@@ -4,7 +4,7 @@ import xgboost as xgb
 from sklearn.ensemble import RandomForestClassifier
 
 
-def get_pred_y(train_X, train_y, test_X):
+def get_pred_y1(train_X, train_y, test_X):
     xg_train_X = xgb.DMatrix(train_X.values, label=train_y.values, feature_names=train_X.columns.tolist())
     xg_test_X = xgb.DMatrix(test_X.values, feature_names=test_X.columns.tolist())
 
@@ -16,10 +16,11 @@ def get_pred_y(train_X, train_y, test_X):
     param['eval_metric'] = 'auc'
     param['seed'] = 229
 
-    cv_result = xgb.cv(param, xg_train_X, num_boost_round=1000, nfold=3, metrics='auc', early_stopping_rounds=50, verbose_eval=True, show_stdv=False)
+    # cv_result = xgb.cv(param, xg_train_X, num_boost_round=1000, nfold=3, metrics='auc', early_stopping_rounds=50, verbose_eval=True, show_stdv=False)
 
     watchlist = [(xg_train_X, 'train')]
-    num_round = cv_result.shape[0]
+    # num_round = cv_result.shape[0]
+    num_round = 57
     bst = xgb.train(param, xg_train_X, num_round, watchlist)
 
     pred_y = bst.predict(xg_test_X)
@@ -40,8 +41,10 @@ if __name__ == '__main__':
     train_y = train['TARGET']
     test_X = test.drop(['ID'], axis=1)
 
-    # pred_y = get_pred_y(train_X, train_y, test_X)
-    pred_y = get_pred_y2(train_X, train_y, test_X)
+    pred_y1 = get_pred_y1(train_X, train_y, test_X)
+    pred_y2 = get_pred_y2(train_X, train_y, test_X)
+
+    pred_y = (pred_y1 * 4 + pred_y2 * 1) / 5
 
     submission = pd.DataFrame(data=pred_y, columns=['TARGET'])
     submission = submission.join(test['ID'])
