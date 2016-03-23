@@ -8,6 +8,9 @@ from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
 
 
+random_seed = 229
+
+
 def get_remove_col(train):
     remove = []
     # 去除常数列
@@ -24,19 +27,16 @@ def get_remove_col(train):
     return remove
 
 
-def model_fit(xgb_model, X, y):
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=229)
-    xgb_model.fit(X, y, eval_metric='auc', eval_set=[(X_train, y_train), (X_test, y_test)])
-
-
 def tune_xgb_param(X, y):
     base_param = {}
     base_param['nthread'] = 2
     base_param['silent'] = 1
     base_param['learning_rate'] = 0.1
-    base_param['n_estimators'] = 63
+    base_param['n_estimators'] = 500
     base_param['objective'] = 'binary:logistic'
-    base_param['seed'] = 229
+    base_param['seed'] = random_seed
+
+    base_param['scale_pos_weight'] = float(np.sum(y == 0)) / np.sum(y == 1)
 
     tune_param = {}
     # tune_param['max_depth'] = range(3, 10, 2)
@@ -52,45 +52,35 @@ def tune_xgb_param(X, y):
     # tune_param['gamma'] = [i / 100.0 for i in range(15, 25, 2)]
     base_param['gamma'] = 0.21
 
+    # tune_param['subsample'] = [i / 10.0 for i in range(6, 10)]
+    # tune_param['colsample_bytree'] = [i / 10.0 for i in range(6, 10)]
+    base_param['subsample'] = 0.7
+    # tune_param['colsample_bytree'] = [i / 100.0 for i in range(85, 95)]
+    base_param['colsample_bytree'] = 0.9
+
     model = xgb.XGBClassifier(**base_param)
-    clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=4, cv=3, verbose=2)
+    clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=1, cv=3, verbose=2)
     clf.fit(X, y)
     for item in clf.grid_scores_:
         print item
-    print clf.best_params_, clf.best_score_
+    print 'BEST', clf.best_params_, clf.best_score_
 
-    # model_fit(clf.best_estimator_, X, y)
+    return clf.best_estimator_
 
 
 def get_pred_y1(train_X, train_y, test_X):
-    xg_train_X = xgb.DMatrix(train_X.values, label=train_y.values, feature_names=train_X.columns.tolist())
-    xg_test_X = xgb.DMatrix(test_X.values, feature_names=test_X.columns.tolist())
+    X_fit, X_eval, y_fit, y_eval = train_test_split(train_X, train_y, test_size=0.1, random_state=random_seed)
 
-    param = {}
-    param['nthread'] = 2
-    param['silent'] = 1
-    param['eta'] = 0.1
-    param['objective'] = 'binary:logistic'
-    param['eval_metric'] = 'auc'
-    param['seed'] = 229
+    xgb_model = tune_xgb_param(train_X, train_y)
 
-    param['max_depth'] = 5
-    param['min_child_weight'] = 5
+    xgb_model.fit(X_fit, y_fit, early_stopping_rounds=50, eval_metric='auc', eval_set=[(X_fit, y_fit), (X_eval, y_eval)])
 
-    cv_result = xgb.cv(param, xg_train_X, num_boost_round=1000, nfold=3, metrics='auc', early_stopping_rounds=50, verbose_eval=True, show_stdv=False)
-
-    watchlist = [(xg_train_X, 'train')]
-    num_round = cv_result.shape[0]
-    # num_round = 57
-    print 'num_round', num_round
-    bst = xgb.train(param, xg_train_X, num_round, watchlist)
-
-    pred_y = bst.predict(xg_test_X)
-    return pred_y
+    pred_y = xgb_model.predict_proba(test_X, ntree_limit=xgb_model.best_ntree_limit)
+    return pred_y[:, 1]
 
 
 def get_pred_y2(train_X, train_y, test_X):
-    clf = RandomForestClassifier(n_estimators=100, max_depth=6, min_samples_split=100, random_state=229, verbose=1)
+    clf = RandomForestClassifier(n_estimators=100, max_depth=6, min_samples_split=100, random_state=random_seed, verbose=1)
     clf.fit(train_X, train_y)
     pred_y = clf.predict_proba(test_X)
     return pred_y[:, 1]
@@ -108,8 +98,8 @@ if __name__ == '__main__':
     train_y = train['TARGET']
     test_X = test.drop(['ID'], axis=1)
 
-    tune_xgb_param(train_X, train_y)
-    sys.exit(0)
+    # tune_xgb_param(train_X, train_y)
+    # sys.exit(0)
 
     pred_y1 = get_pred_y1(train_X, train_y, test_X)
     # pred_y2 = get_pred_y2(train_X, train_y, test_X)
