@@ -35,8 +35,8 @@ def tune_xgb_param(X, y, xgbcv=False):
     base_param['objective'] = 'binary:logistic'
     # base_param['scale_pos_weight'] = float(np.sum(y == 0)) / np.sum(y == 1)
 
-    base_param['learning_rate'] = 0.1
-    base_param['n_estimators'] = 70
+    base_param['learning_rate'] = 0.03
+    base_param['n_estimators'] = 260
     base_param['max_depth'] = 5
     base_param['min_child_weight'] = 9
     base_param['gamma'] = 0.23
@@ -61,6 +61,9 @@ def tune_xgb_param(X, y, xgbcv=False):
     # tune_param['colsample_bytree'] = [i / 10.0 for i in range(6, 10)]
     # tune_param['colsample_bytree'] = [i / 100.0 for i in range(75, 95)]
 
+    # tune_param['learning_rate'] = [0.03, 0.04, 0.05]
+    # tune_param['n_estimators'] = [200 + i * 10 for i in range(0, 11)]
+
     model = xgb.XGBClassifier(**base_param)
     clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=4, cv=3, verbose=2)
     clf.fit(X, y)
@@ -76,7 +79,8 @@ def get_pred_y1(train_X, train_y, test_X):
 
     xgb_model = tune_xgb_param(train_X, train_y, True)
 
-    xgb_model.fit(X_fit, y_fit, early_stopping_rounds=50, eval_metric='auc', eval_set=[(X_fit, y_fit), (X_eval, y_eval)])
+    # xgb_model.fit(X_fit, y_fit, early_stopping_rounds=50, eval_metric='auc', eval_set=[(X_fit, y_fit), (X_eval, y_eval)])
+    xgb_model.fit(train_X, train_y, early_stopping_rounds=50, eval_metric='auc', eval_set=[(train_X, train_y)])
 
     pred_y = xgb_model.predict_proba(test_X)
     return pred_y[:, 1]
