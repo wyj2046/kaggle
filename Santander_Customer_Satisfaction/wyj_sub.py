@@ -27,39 +27,42 @@ def get_remove_col(train):
     return remove
 
 
-def tune_xgb_param(X, y):
+def tune_xgb_param(X, y, xgbcv=False):
     base_param = {}
     base_param['nthread'] = 2
     base_param['silent'] = 1
-    base_param['learning_rate'] = 0.1
-    base_param['n_estimators'] = 500
-    base_param['objective'] = 'binary:logistic'
     base_param['seed'] = random_seed
+    base_param['objective'] = 'binary:logistic'
+    # base_param['scale_pos_weight'] = float(np.sum(y == 0)) / np.sum(y == 1)
 
-    base_param['scale_pos_weight'] = float(np.sum(y == 0)) / np.sum(y == 1)
+    base_param['learning_rate'] = 0.1
+    base_param['n_estimators'] = 70
+    base_param['max_depth'] = 5
+    base_param['min_child_weight'] = 9
+    base_param['gamma'] = 0.23
+    base_param['subsample'] = 0.7
+    base_param['colsample_bytree'] = 0.8
+
+    if xgbcv:
+        xg_train = xgb.DMatrix(X, label=y)
+        cv_result = xgb.cv(base_param, xg_train, num_boost_round=base_param['n_estimators'], nfold=3, metrics='auc', early_stopping_rounds=50, verbose_eval=1, show_stdv=False, seed=random_seed)
+        base_param['n_estimators'] = cv_result.shape[0]
 
     tune_param = {}
-    # tune_param['max_depth'] = range(3, 10, 2)
-    # tune_param['min_child_weight'] = range(1, 6, 2)
-    base_param['max_depth'] = 5
-    # base_param['min_child_weight'] = 5
-
-    # tune_param['min_child_weight'] = [5, 7, 9, 11]
-    base_param['min_child_weight'] = 5
+    # tune_param['max_depth'] = range(1, 10, 2)
+    # tune_param['min_child_weight'] = range(1, 10, 2)
+    # tune_param['min_child_weight'] = range(9, 20, 2)
 
     # tune_param['gamma'] = [i / 10.0 for i in range(0, 5)]
-    # tune_param['gamma'] = 0.2
     # tune_param['gamma'] = [i / 100.0 for i in range(15, 25, 2)]
-    base_param['gamma'] = 0.21
+    # tune_param['gamma'] = [i / 100.0 for i in range(23, 35, 2)]
 
     # tune_param['subsample'] = [i / 10.0 for i in range(6, 10)]
     # tune_param['colsample_bytree'] = [i / 10.0 for i in range(6, 10)]
-    base_param['subsample'] = 0.7
-    # tune_param['colsample_bytree'] = [i / 100.0 for i in range(85, 95)]
-    base_param['colsample_bytree'] = 0.9
+    # tune_param['colsample_bytree'] = [i / 100.0 for i in range(75, 95)]
 
     model = xgb.XGBClassifier(**base_param)
-    clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=1, cv=3, verbose=2)
+    clf = GridSearchCV(model, tune_param, scoring='roc_auc', n_jobs=4, cv=3, verbose=2)
     clf.fit(X, y)
     for item in clf.grid_scores_:
         print item
@@ -71,11 +74,11 @@ def tune_xgb_param(X, y):
 def get_pred_y1(train_X, train_y, test_X):
     X_fit, X_eval, y_fit, y_eval = train_test_split(train_X, train_y, test_size=0.1, random_state=random_seed)
 
-    xgb_model = tune_xgb_param(train_X, train_y)
+    xgb_model = tune_xgb_param(train_X, train_y, True)
 
     xgb_model.fit(X_fit, y_fit, early_stopping_rounds=50, eval_metric='auc', eval_set=[(X_fit, y_fit), (X_eval, y_eval)])
 
-    pred_y = xgb_model.predict_proba(test_X, ntree_limit=xgb_model.best_ntree_limit)
+    pred_y = xgb_model.predict_proba(test_X)
     return pred_y[:, 1]
 
 
