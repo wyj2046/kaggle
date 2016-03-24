@@ -6,6 +6,8 @@ from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 from sklearn.cross_validation import train_test_split
 from sklearn.grid_search import GridSearchCV
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import f_classif
 
 
 random_seed = 229
@@ -36,7 +38,7 @@ def tune_xgb_param(X, y, xgbcv=False):
     # base_param['scale_pos_weight'] = float(np.sum(y == 0)) / np.sum(y == 1)
 
     base_param['learning_rate'] = 0.03
-    base_param['n_estimators'] = 260
+    base_param['n_estimators'] = 500
     base_param['max_depth'] = 5
     base_param['min_child_weight'] = 9
     base_param['gamma'] = 0.23
@@ -45,7 +47,7 @@ def tune_xgb_param(X, y, xgbcv=False):
 
     if xgbcv:
         xg_train = xgb.DMatrix(X, label=y)
-        cv_result = xgb.cv(base_param, xg_train, num_boost_round=base_param['n_estimators'], nfold=3, metrics='auc', early_stopping_rounds=50, verbose_eval=1, show_stdv=False, seed=random_seed)
+        cv_result = xgb.cv(base_param, xg_train, num_boost_round=base_param['n_estimators'], nfold=5, metrics='auc', early_stopping_rounds=50, verbose_eval=1, show_stdv=False, seed=random_seed)
         base_param['n_estimators'] = cv_result.shape[0]
 
     tune_param = {}
@@ -96,6 +98,8 @@ def get_pred_y2(train_X, train_y, test_X):
 if __name__ == '__main__':
     train = pd.read_csv('train.csv')
     test = pd.read_csv('test.csv')
+    train = train.replace(-999999, 2)
+    test = test.replace(-999999, 2)
 
     remove = get_remove_col(train)
     train.drop(remove, axis=1, inplace=True)
@@ -104,6 +108,12 @@ if __name__ == '__main__':
     train_X = train.drop(['ID', 'TARGET'], axis=1)
     train_y = train['TARGET']
     test_X = test.drop(['ID'], axis=1)
+
+    selectK = SelectKBest(f_classif, k=220)
+    selectK.fit(train_X, train_y)
+
+    train_X = selectK.transform(train_X)
+    test_X = selectK.transform(test_X)
 
     # tune_xgb_param(train_X, train_y)
     # sys.exit(0)
