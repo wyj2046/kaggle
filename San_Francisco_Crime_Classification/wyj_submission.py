@@ -7,6 +7,11 @@ from sklearn.ensemble import GradientBoostingClassifier
 import xgboost as xgb
 from sklearn.grid_search import GridSearchCV
 from sklearn.cross_validation import StratifiedKFold
+from sklearn.cross_validation import train_test_split
+
+
+random_seed = 229
+cv_folds = 3
 
 
 dow = {
@@ -100,15 +105,78 @@ def label_to_num(df):
     return df
 
 
+def tune_xgb_param(X, y, xgbcv=False, sklearn_cv=False):
+    base_param = {}
+    base_param['nthread'] = 8
+    base_param['silent'] = 1
+    base_param['seed'] = random_seed
+    base_param['objective'] = 'multi:softprob'
+
+    base_param['learning_rate'] = 0.1
+    base_param['n_estimators'] = 985
+    base_param['max_depth'] = 6
+    base_param['min_child_weight'] = 1
+    base_param['gamma'] = 0
+    base_param['subsample'] = 0.8
+    base_param['colsample_bytree'] = 0.8
+
+    if xgbcv:
+        xg_train = xgb.DMatrix(X, label=y)
+        cv_result = xgb.cv(base_param, xg_train, num_boost_round=base_param['n_estimators'], nfold=cv_folds, metrics='mlogloss', early_stopping_rounds=50, verbose_eval=1, show_stdv=False, seed=random_seed)
+        base_param['n_estimators'] = cv_result.shape[0]
+
+    tune_param = {}
+    # tune_param['max_depth'] = range(1, 10, 2)
+    # tune_param['min_child_weight'] = range(1, 10, 2)
+    # tune_param['min_child_weight'] = range(9, 20, 2)
+
+    # tune_param['gamma'] = [i / 10.0 for i in range(0, 5)]
+    # tune_param['gamma'] = [i / 100.0 for i in range(15, 25, 2)]
+    # tune_param['gamma'] = [i / 100.0 for i in range(23, 35, 2)]
+
+    # tune_param['subsample'] = [i / 10.0 for i in range(6, 10)]
+    # tune_param['colsample_bytree'] = [i / 10.0 for i in range(6, 10)]
+    # tune_param['colsample_bytree'] = [i / 100.0 for i in range(75, 95)]
+
+    # tune_param['learning_rate'] = [0.03, 0.04, 0.05]
+    # tune_param['n_estimators'] = [200 + i * 10 for i in range(0, 11)]
+
+    model = xgb.XGBClassifier(**base_param)
+
+    if sklearn_cv:
+        clf = GridSearchCV(model, tune_param, scoring='log_loss', n_jobs=2, cv=cv_folds, verbose=2)
+        clf.fit(X, y)
+        for item in clf.grid_scores_:
+            print item
+        print 'BEST', clf.best_params_, clf.best_score_
+
+        return clf.best_estimator_
+
+    return model
+
+
+def get_pred_y1(train_X, train_y, test_X):
+    X_fit, X_eval, y_fit, y_eval = train_test_split(train_X, train_y, test_size=0.1, random_state=random_seed)
+
+    xgb_model = tune_xgb_param(train_X, train_y, False, False)
+
+    xgb_model.fit(X_fit, y_fit, early_stopping_rounds=50, eval_metric='mlogloss', eval_set=[(X_fit, y_fit), (X_eval, y_eval)])
+    # xgb_model.fit(train_X, train_y, early_stopping_rounds=50, eval_metric='mlogloss', eval_set=[(train_X, train_y)])
+
+    pred_y = xgb_model.predict_proba(test_X)
+    return pred_y
+
+
 if __name__ == '__main__':
     train = pd.read_csv('train.csv')
     test = pd.read_csv('test.csv')
 
-    y_train = train['Category']
+    train_y = train['Category']
+    train_y = label_to_num(train_y)
     test_id = test['Id']
 
-    X_train = harmonize_data2(train)
-    X_test = harmonize_data2(test)
+    train_X = harmonize_data2(train)
+    test_X = harmonize_data2(test)
 
     # clf = RandomForestClassifier(n_jobs=1, n_estimators=100, min_samples_split=1000)
     # clf = GradientBoostingClassifier(n_estimators=100, min_samples_split=1000, verbose=1)
@@ -120,54 +188,17 @@ if __name__ == '__main__':
 
     # clf = SVC(probability=True)
     # clf = GridSearchCV(clf, tunes_parameters)
-    # clf.fit(X_train, y_train)
+    # clf.fit(train_X, train_y)
     # print clf.best_params_
     # for params, mean_score, scores in clf.grid_scores_:
     #     print '%0.3f (+/-%0.03f) for %r' % (mean_score, scores.std() * 2, params)
 
-    # results = clf.predict_proba(X_test)
+    # results = clf.predict_proba(test_X)
 
-    # label_num = label_to_num(y_train)
-    # xg_train = xgb.DMatrix(X_train.values, label=label_num.values)
-    # xg_test = xgb.DMatrix(X_test.values)
+    results = get_pred_y1(train_X, train_y, test_X)
 
-    # param = {}
-    # param['objective'] = 'multi:softprob'
-    # param['eval_metric'] = 'mlogloss'
-    # param['num_class'] = len(y_train.unique())
-    # param['eta'] = 0.1
-    # param['max_depth'] = 6
-    # param['nthread'] = 2
-    # param['silent'] = 1
-    # param['seed'] = '229'
-
-    # watchlist = [(xg_train, 'train')]
-    # num_round = 1000
-    # bst = xgb.train(param, xg_train, num_round, watchlist)
-    # results = bst.predict(xg_test)
-
-    # xgb_model = xgb.XGBClassifier(objective='multi:softprob', learning_rate=0.1, n_estimators=2, max_depth=6, nthread=2, seed='229')
-    # xgb_model.fit(X_train, y_train, eval_metric='mlogloss')
-    # results = xgb_model.predict_proba(X_test)
-
-    xgb_model = xgb.XGBClassifier()
-
-    param = {}
-    param['objective'] = ['multi:softprob']
-    param['nthread'] = [2]
-    param['seed'] = ['229']
-
-    param['learning_rate'] = [0.1]
-    param['max_depth'] = [6]
-    param['n_estimators'] = [2]
-
-    clf = GridSearchCV(xgb_model, param, n_jobs=2, cv=StratifiedKFold(y_train, n_folds=3, shuffle=True), scoring='log_loss')
-    clf.fit(X_train, y_train)
-    print clf.grid_scores_
-    results = clf.predict_proba(X_test)
-
-    submission = pd.DataFrame(data=results, columns=y_train.unique())
+    submission = pd.DataFrame(data=results, columns=train['Category'].unique())
     submission = submission.join(test_id)
 
-    columns = ['Id'] + y_train.unique().tolist()
+    columns = ['Id'] + train['Category'].unique().tolist()
     submission.to_csv('result.csv', index=False, columns=columns)
