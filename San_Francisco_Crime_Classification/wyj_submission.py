@@ -107,34 +107,35 @@ def label_to_num(df):
 
 def tune_xgb_param(X, y, xgbcv=False, sklearn_cv=False):
     base_param = {}
-    base_param['nthread'] = 8
+    base_param['nthread'] = 4
     base_param['silent'] = 1
     base_param['seed'] = random_seed
     base_param['objective'] = 'multi:softprob'
 
     base_param['learning_rate'] = 0.1
     base_param['n_estimators'] = 985
-    base_param['max_depth'] = 6
-    base_param['min_child_weight'] = 1
-    base_param['gamma'] = 0
+    base_param['max_depth'] = 5
+    base_param['min_child_weight'] = 7
+    base_param['gamma'] = 0.2
     base_param['subsample'] = 0.8
     base_param['colsample_bytree'] = 0.8
 
     if xgbcv:
         xg_train = xgb.DMatrix(X, label=y)
-        cv_result = xgb.cv(base_param, xg_train, num_boost_round=base_param['n_estimators'], nfold=cv_folds, metrics='mlogloss', early_stopping_rounds=50, verbose_eval=1, show_stdv=False, seed=random_seed)
+        cv_result = xgb.cv(base_param, xg_train, num_boost_round=base_param['n_estimators'], nfold=cv_folds, metrics='mlogloss', early_stopping_rounds=50, verbose_eval=1, show_stdv=False, seed=random_seed, stratified=True)
         base_param['n_estimators'] = cv_result.shape[0]
 
     tune_param = {}
-    # tune_param['max_depth'] = range(1, 10, 2)
-    # tune_param['min_child_weight'] = range(1, 10, 2)
+    # tune_param['max_depth'] = [6, 7, 8, 9]
+    # tune_param['min_child_weight'] = range(5, 10, 1)
     # tune_param['min_child_weight'] = range(9, 20, 2)
 
-    # tune_param['gamma'] = [i / 10.0 for i in range(0, 5)]
+    # tune_param['gamma'] = [i / 10.0 for i in range(0, 3)]
+    # tune_param['gamma'] = [i / 10.0 for i in range(3, 6)]
     # tune_param['gamma'] = [i / 100.0 for i in range(15, 25, 2)]
     # tune_param['gamma'] = [i / 100.0 for i in range(23, 35, 2)]
 
-    # tune_param['subsample'] = [i / 10.0 for i in range(6, 10)]
+    tune_param['subsample'] = [i / 10.0 for i in range(5, 10)]
     # tune_param['colsample_bytree'] = [i / 10.0 for i in range(6, 10)]
     # tune_param['colsample_bytree'] = [i / 100.0 for i in range(75, 95)]
 
@@ -158,10 +159,10 @@ def tune_xgb_param(X, y, xgbcv=False, sklearn_cv=False):
 def get_pred_y1(train_X, train_y, test_X):
     X_fit, X_eval, y_fit, y_eval = train_test_split(train_X, train_y, test_size=0.1, random_state=random_seed)
 
-    xgb_model = tune_xgb_param(train_X, train_y, False, False)
+    xgb_model = tune_xgb_param(train_X, train_y, False, True)
 
-    xgb_model.fit(X_fit, y_fit, early_stopping_rounds=50, eval_metric='mlogloss', eval_set=[(X_fit, y_fit), (X_eval, y_eval)])
-    # xgb_model.fit(train_X, train_y, early_stopping_rounds=50, eval_metric='mlogloss', eval_set=[(train_X, train_y)])
+    # xgb_model.fit(X_fit, y_fit, early_stopping_rounds=50, eval_metric='mlogloss', eval_set=[(X_fit, y_fit), (X_eval, y_eval)])
+    xgb_model.fit(train_X, train_y, early_stopping_rounds=50, eval_metric='mlogloss', eval_set=[(train_X, train_y)])
 
     pred_y = xgb_model.predict_proba(test_X)
     return pred_y
